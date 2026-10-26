@@ -282,18 +282,10 @@ export function extractMarkdownSections(
     return item;
   };
 
-  const getMarkdownContent = (node: Node | undefined): string | undefined => {
-    if (typeof node?.attributes?.content === 'string') {
-      return node.attributes.content;
-    }
-    if (node?.children) {
-      return getMarkdownContent(node.children[0]);
-    }
-    return undefined;
-  };
-
   const processAst = (node: Node): void => {
-    const name = getMarkdownContent(node) || '';
+    // Whole inline subtree, as in `resolveMarkdocHeadingIds`: the first text node alone
+    // truncates `## Header with **bold**` to `Header with `.
+    const name = node.attributes?.level ? collectTextContent(node).trim() : '';
     if (!node.attributes?.level) {
       const scopeId = currentTopHeading?.id ?? operationId;
       scopePartialHeadings(node, scopeId ? { operationId: scopeId } : OVERVIEW_ROOT_SCOPE);

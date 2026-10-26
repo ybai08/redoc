@@ -16,6 +16,7 @@ import {
   resolveMarkdocHeadingIds,
 } from '../markdoc.js';
 import { parseMarkdown } from '../parseMarkdown.js';
+import { markdocParser } from '../../../components/markdoc/markdocParser.js';
 import { buildDeepLinkUrl, makeDeepLink } from '../../../utils/deep-link.js';
 
 vi.mock('../parseMarkdown.js', () => ({ parseMarkdown: vi.fn() }));
@@ -350,6 +351,22 @@ describe('extractMarkdownSections', () => {
     vi.mocked(parseMarkdown).mockReturnValue('A plain description.');
 
     expect(extractMarkdownSections('A plain description.')).toEqual([]);
+  });
+
+  it('names and slugs a heading from all of its inline text, not just the first text node', () => {
+    vi.mocked(parseMarkdown).mockReturnValue(
+      markdocParser(
+        '# Header 1\n\n## Header 1.1 with **bold**\n\n## Header 1.2 with _italic_\n\n## **Bold** then `code`\n',
+      ),
+    );
+
+    const result = extractMarkdownSections('...');
+
+    expect(result[0].items.map(({ id, name }) => ({ id, name }))).toEqual([
+      { id: 'section/header-1/header-1.1-with-bold', name: 'Header 1.1 with bold' },
+      { id: 'section/header-1/header-1.2-with-italic', name: 'Header 1.2 with italic' },
+      { id: 'section/header-1/bold-then-code', name: 'Bold then code' },
+    ]);
   });
 });
 
