@@ -393,6 +393,9 @@ export function resolveLegacyHashToRoute(
   const direct = normalizePath(joinWithSeparator(basePath, id));
   if (resolveRouteByPathname(routeIndex, direct)) return direct;
 
+  // After current paths, so an old id never shadows one; the first heading that had it keeps it.
+  const renamed = routeIndex.allRoutes.find((route) => route.legacyPath === direct.toLowerCase());
+  if (renamed) return renamed.path;
 
   const legacyHash = getLegacyHash(hash);
   if (!legacyHash) return undefined;

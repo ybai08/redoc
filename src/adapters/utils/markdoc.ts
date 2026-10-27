@@ -246,14 +246,7 @@ export function extractMarkdownSections(
   const items: MarkdownHeading[] = [];
   let currentTopHeading: MarkdownHeading | undefined;
 
-  const saveHeading = (
-    name: string,
-    level: number,
-    container: MarkdownHeading[] = items,
-    node: Node,
-    parentId?: string,
-  ): MarkdownHeading => {
-    name = unescapeHTMLChars(name);
+  const headingId = (name: string, node: Node, parentId?: string): string => {
     const hasParent = parentId !== undefined;
 
     const base = hasParent ? parentId : operationId;
@@ -267,12 +260,30 @@ export function extractMarkdownSections(
       relativeFragment = `section/${safeSlugify(name)}`;
     }
 
-    const id = joinWithSeparator(base, relativeFragment).toLowerCase();
+    return joinWithSeparator(base, relativeFragment).toLowerCase();
+  };
+
+  const saveHeading = (
+    name: string,
+    level: number,
+    container: MarkdownHeading[] = items,
+    node: Node,
+    parent?: MarkdownHeading,
+  ): MarkdownHeading => {
+    name = unescapeHTMLChars(name);
+    const id = headingId(name, node, parent?.id);
+    // The id from before headings were named from all of their inline text, so old links resolve.
+    const legacyId = headingId(
+      unescapeHTMLChars(getMarkdownContent(node) || ''),
+      node,
+      parent && (parent.legacyId ?? parent.id),
+    );
 
     node.attributes.id = id;
 
     const item: MarkdownHeading = {
       id,
+      ...(legacyId !== id && { legacyId }),
       name,
       level,
       items: [],
@@ -280,6 +291,16 @@ export function extractMarkdownSections(
     };
     container.push(item);
     return item;
+  };
+
+  const getMarkdownContent = (node: Node | undefined): string | undefined => {
+    if (typeof node?.attributes?.content === 'string') {
+      return node.attributes.content;
+    }
+    if (node?.children) {
+      return getMarkdownContent(node.children[0]);
+    }
+    return undefined;
   };
 
   const processAst = (node: Node): void => {
@@ -298,7 +319,7 @@ export function extractMarkdownSections(
         node.attributes.level,
         currentTopHeading?.items,
         node,
-        currentTopHeading?.id,
+        currentTopHeading,
       );
     } else if (currentTopHeading?.items?.length) {
       currentTopHeading.items[currentTopHeading.items.length - 1]?.ast?.push(node);
@@ -347,9 +368,14 @@ export function buildMarkdownSectionItem({
     label: heading.name,
     link: slug,
     routeSlug: slug,
+    legacyRouteSlug: legacyRouteSlug(heading, basePath),
     items: hasChildren ? childItems : undefined,
     content: withContent ? buildSectionContent(heading) : null,
   };
+}
+
+function legacyRouteSlug(heading: MarkdownHeading, basePath: string): string | undefined {
+  return heading.legacyId && joinWithSeparator(basePath, heading.legacyId).toLowerCase();
 }
 
 export function collectMarkdownSections(
@@ -399,6 +425,7 @@ function buildSectionItemWithChildren(
     label: heading.name,
     link: slug,
     routeSlug: slug,
+    legacyRouteSlug: legacyRouteSlug(heading, basePath),
     items: hasNestedItems ? nestedItems : undefined,
     content: null as unknown as ApiItem['content'],
   };

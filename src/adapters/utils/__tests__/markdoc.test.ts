@@ -368,6 +368,25 @@ describe('extractMarkdownSections', () => {
       { id: 'section/header-1/bold-then-code', name: 'Bold then code' },
     ]);
   });
+
+  it('keeps the old first-text-node id as legacyId only for headings whose id changed', () => {
+    vi.mocked(parseMarkdown).mockReturnValue(
+      markdocParser(
+        '# Intro **now**\n\n## Child\n\n# Plain\n\n## Header with **bold**\n\n## Same\n',
+      ),
+    );
+
+    const [intro, plain] = extractMarkdownSections('...');
+    const headings = [intro, ...intro.items, plain, ...plain.items];
+
+    expect(headings.map(({ id, legacyId }) => ({ id, legacyId }))).toEqual([
+      { id: 'section/intro-now', legacyId: 'section/intro' },
+      { id: 'section/intro-now/child', legacyId: 'section/intro/child' },
+      { id: 'section/plain', legacyId: undefined },
+      { id: 'section/plain/header-with-bold', legacyId: 'section/plain/header-with' },
+      { id: 'section/plain/same', legacyId: undefined },
+    ]);
+  });
 });
 
 describe('collectMarkdownSections', () => {

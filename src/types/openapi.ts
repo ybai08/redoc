@@ -496,6 +496,8 @@ export type OperationInfo = {
 
 export type MarkdownHeading = {
   id: string;
+  /** The id from before formatted headings were named from all of their text; set only when it differs. */
+  legacyId?: string;
   name: string;
   level: number;
   items: MarkdownHeading[];
