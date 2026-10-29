@@ -6,8 +6,7 @@ import { tryDecodeURIComponent } from './string.js';
 
 export type RouteItem = {
   path: string;
-  /** An older path that redirects here, unless some route's current path is the same. */
-  legacyPath?: string;
+  previousPath?: string;
   label: string;
   content: ApiItemContent;
   badges?: BadgeData[];
@@ -169,7 +168,8 @@ function toRouteItem(item: ApiItem): RouteItem {
   const deprecated = 'deprecated' in item ? (item.deprecated as boolean | undefined) : undefined;
   return {
     path,
-    legacyPath: item.legacyRouteSlug && tryDecodeURIComponent(item.legacyRouteSlug).toLowerCase(),
+    previousPath:
+      item.previousRouteSlug && tryDecodeURIComponent(item.previousRouteSlug).toLowerCase(),
     label: item.label ?? '',
     content: item.content as ApiItemContent,
     badges,

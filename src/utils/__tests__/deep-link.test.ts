@@ -483,12 +483,17 @@ describe('resolveLegacyHashToRoute', () => {
       );
     });
 
-    it('does not let an old id shadow a heading that has it as its current id', () => {
-      const index = sectionRouteIndex('# Top\n\n## Item **one**\n\n## Item\n');
-
-      expect(resolveLegacyHashToRoute('#section/top/item', '/docs', index)).toBe(
-        '/docs/section/top/item',
+    it('does not let an old id shadow a route that has it as its current path', () => {
+      const index = buildRouteIndex(
+        [
+          { ...makeRoute('/docs/section/item-one'), previousPath: '/docs/section/item' },
+          makeRoute('/docs/section/item'),
+        ],
+        [],
+        '/docs',
       );
+
+      expect(resolveLegacyHashToRoute('#section/item', '/docs', index)).toBe('/docs/section/item');
     });
 
     it('sends an old id two headings shared to the first of them', () => {

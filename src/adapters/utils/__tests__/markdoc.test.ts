@@ -369,7 +369,7 @@ describe('extractMarkdownSections', () => {
     ]);
   });
 
-  it('keeps the old first-text-node id as legacyId only for headings whose id changed', () => {
+  it('keeps the old first-text-node id as previousId only for headings whose id changed', () => {
     vi.mocked(parseMarkdown).mockReturnValue(
       markdocParser(
         '# Intro **now**\n\n## Child\n\n# Plain\n\n## Header with **bold**\n\n## Same\n',
@@ -379,12 +379,40 @@ describe('extractMarkdownSections', () => {
     const [intro, plain] = extractMarkdownSections('...');
     const headings = [intro, ...intro.items, plain, ...plain.items];
 
-    expect(headings.map(({ id, legacyId }) => ({ id, legacyId }))).toEqual([
-      { id: 'section/intro-now', legacyId: 'section/intro' },
-      { id: 'section/intro-now/child', legacyId: 'section/intro/child' },
-      { id: 'section/plain', legacyId: undefined },
-      { id: 'section/plain/header-with-bold', legacyId: 'section/plain/header-with' },
-      { id: 'section/plain/same', legacyId: undefined },
+    expect(headings.map(({ id, previousId }) => ({ id, previousId }))).toEqual([
+      { id: 'section/intro-now', previousId: 'section/intro' },
+      { id: 'section/intro-now/child', previousId: 'section/intro/child' },
+      { id: 'section/plain', previousId: undefined },
+      { id: 'section/plain/header-with-bold', previousId: 'section/plain/header-with' },
+      { id: 'section/plain/same', previousId: undefined },
+    ]);
+  });
+
+  it('drops a previousId that another heading in the document has as its current id', () => {
+    vi.mocked(parseMarkdown).mockReturnValue(
+      markdocParser('# Top\n\n## ![logo](x) Branding\n\n## Item **one**\n\n## Item\n'),
+    );
+
+    const [top] = extractMarkdownSections('...');
+
+    expect(top.items.map(({ id, previousId }) => ({ id, previousId }))).toEqual([
+      { id: 'section/top/branding', previousId: undefined },
+      { id: 'section/top/item-one', previousId: undefined },
+      { id: 'section/top/item', previousId: undefined },
+    ]);
+  });
+
+  it('keeps a previousId shared by several headings on the first of them only', () => {
+    vi.mocked(parseMarkdown).mockReturnValue(
+      markdocParser('# Top\n\n## Same **a**\n\n## Same **b**\n\n## Same _c_\n'),
+    );
+
+    const [top] = extractMarkdownSections('...');
+
+    expect(top.items.map(({ id, previousId }) => ({ id, previousId }))).toEqual([
+      { id: 'section/top/same-a', previousId: 'section/top/same' },
+      { id: 'section/top/same-b', previousId: undefined },
+      { id: 'section/top/same-c', previousId: undefined },
     ]);
   });
 });

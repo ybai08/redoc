@@ -75,8 +75,7 @@ export type ItemMeta = {
 export type ApiItem = ResolvedNavItem & {
   content: ApiItemContent | null;
   httpVerb?: string;
-  /** An older route slug that still resolves here, by redirect. */
-  legacyRouteSlug?: string;
+  previousRouteSlug?: string;
 };
 
 export type SchemaEntry = {

@@ -858,7 +858,7 @@ describe('useApiDocsScroll', () => {
         makeRoute({ path: '/docs' }),
         makeRoute({
           path: '/docs/section/intro-now',
-          legacyPath: '/docs/section/intro',
+          previousPath: '/docs/section/intro',
           content: null as unknown as ApiItemContent,
         }),
       ];

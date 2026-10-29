@@ -272,18 +272,17 @@ export function extractMarkdownSections(
   ): MarkdownHeading => {
     name = unescapeHTMLChars(name);
     const id = headingId(name, node, parent?.id);
-    // The id from before headings were named from all of their inline text, so old links resolve.
-    const legacyId = headingId(
+    const previousId = headingId(
       unescapeHTMLChars(getMarkdownContent(node) || ''),
       node,
-      parent && (parent.legacyId ?? parent.id),
+      parent && (parent.previousId ?? parent.id),
     );
 
     node.attributes.id = id;
 
     const item: MarkdownHeading = {
       id,
-      ...(legacyId !== id && { legacyId }),
+      ...(previousId !== id && { previousId }),
       name,
       level,
       items: [],
@@ -304,8 +303,6 @@ export function extractMarkdownSections(
   };
 
   const processAst = (node: Node): void => {
-    // Whole inline subtree, as in `resolveMarkdocHeadingIds`: the first text node alone
-    // truncates `## Header with **bold**` to `Header with `.
     const name = node.attributes?.level ? collectTextContent(node).trim() : '';
     if (!node.attributes?.level) {
       const scopeId = currentTopHeading?.id ?? operationId;
@@ -314,13 +311,7 @@ export function extractMarkdownSections(
     if (node.type === 'heading' && node.attributes?.level === 1) {
       currentTopHeading = saveHeading(name, node.attributes.level, undefined, node);
     } else if (node.attributes?.level) {
-      saveHeading(
-        name,
-        node.attributes.level,
-        currentTopHeading?.items,
-        node,
-        currentTopHeading,
-      );
+      saveHeading(name, node.attributes.level, currentTopHeading?.items, node, currentTopHeading);
     } else if (currentTopHeading?.items?.length) {
       currentTopHeading.items[currentTopHeading.items.length - 1]?.ast?.push(node);
     } else if (items.length) {
@@ -336,6 +327,14 @@ export function extractMarkdownSections(
     for (const node of ast.children) {
       processAst(node);
     }
+  }
+
+  const headings = items.flatMap((item) => [item, ...item.items]);
+  const ids = new Set(headings.map(({ id }) => id));
+  for (const heading of headings) {
+    if (heading.previousId === undefined) continue;
+    if (ids.has(heading.previousId)) delete heading.previousId;
+    else ids.add(heading.previousId);
   }
   return items;
 }
@@ -368,14 +367,14 @@ export function buildMarkdownSectionItem({
     label: heading.name,
     link: slug,
     routeSlug: slug,
-    legacyRouteSlug: legacyRouteSlug(heading, basePath),
+    previousRouteSlug: toPreviousRouteSlug(heading, basePath),
     items: hasChildren ? childItems : undefined,
     content: withContent ? buildSectionContent(heading) : null,
   };
 }
 
-function legacyRouteSlug(heading: MarkdownHeading, basePath: string): string | undefined {
-  return heading.legacyId && joinWithSeparator(basePath, heading.legacyId).toLowerCase();
+function toPreviousRouteSlug(heading: MarkdownHeading, basePath: string): string | undefined {
+  return heading.previousId && joinWithSeparator(basePath, heading.previousId).toLowerCase();
 }
 
 export function collectMarkdownSections(
@@ -425,7 +424,7 @@ function buildSectionItemWithChildren(
     label: heading.name,
     link: slug,
     routeSlug: slug,
-    legacyRouteSlug: legacyRouteSlug(heading, basePath),
+    previousRouteSlug: toPreviousRouteSlug(heading, basePath),
     items: hasNestedItems ? nestedItems : undefined,
     content: null as unknown as ApiItem['content'],
   };
