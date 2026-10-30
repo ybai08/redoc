@@ -231,6 +231,8 @@ export function resolveMarkdocHeadingIds(
   }
 }
 
+const authoredHeadingIds = new WeakMap<Node, string | undefined>();
+
 export function extractMarkdownSections(
   description: Node | Node[] | string | undefined,
   options?: ParseMarkdownOptions,
@@ -246,14 +248,14 @@ export function extractMarkdownSections(
   const items: MarkdownHeading[] = [];
   let currentTopHeading: MarkdownHeading | undefined;
 
-  const headingId = (name: string, node: Node, parentId?: string): string => {
+  const headingId = (name: string, authoredId: string | undefined, parentId?: string): string => {
     const hasParent = parentId !== undefined;
 
     const base = hasParent ? parentId : operationId;
 
     let relativeFragment: string;
-    if (node.attributes.id) {
-      relativeFragment = stripBasePrefixes(node.attributes.id, base);
+    if (authoredId) {
+      relativeFragment = stripBasePrefixes(authoredId, base);
     } else if (hasParent || isTagContext) {
       relativeFragment = safeSlugify(name);
     } else {
@@ -263,18 +265,14 @@ export function extractMarkdownSections(
     return joinWithSeparator(base, relativeFragment).toLowerCase();
   };
 
-  const saveHeading = (
-    name: string,
-    level: number,
-    container: MarkdownHeading[] = items,
-    node: Node,
-    parent?: MarkdownHeading,
-  ): MarkdownHeading => {
-    name = unescapeHTMLChars(name);
-    const id = headingId(name, node, parent?.id);
+  const saveHeading = (node: Node, parent?: MarkdownHeading): MarkdownHeading => {
+    if (!authoredHeadingIds.has(node)) authoredHeadingIds.set(node, node.attributes.id);
+    const authoredId = authoredHeadingIds.get(node);
+    const name = unescapeHTMLChars(collectTextContent(node).trim());
+    const id = headingId(name, authoredId, parent?.id);
     const previousId = headingId(
       unescapeHTMLChars(getMarkdownContent(node) || ''),
-      node,
+      authoredId,
       parent && (parent.previousId ?? parent.id),
     );
 
@@ -282,13 +280,13 @@ export function extractMarkdownSections(
 
     const item: MarkdownHeading = {
       id,
-      ...(previousId !== id && { previousId }),
+      previousId,
       name,
-      level,
+      level: node.attributes.level,
       items: [],
       ast: [node],
     };
-    container.push(item);
+    (parent?.items ?? items).push(item);
     return item;
   };
 
@@ -303,15 +301,14 @@ export function extractMarkdownSections(
   };
 
   const processAst = (node: Node): void => {
-    const name = node.attributes?.level ? collectTextContent(node).trim() : '';
     if (!node.attributes?.level) {
       const scopeId = currentTopHeading?.id ?? operationId;
       scopePartialHeadings(node, scopeId ? { operationId: scopeId } : OVERVIEW_ROOT_SCOPE);
     }
     if (node.type === 'heading' && node.attributes?.level === 1) {
-      currentTopHeading = saveHeading(name, node.attributes.level, undefined, node);
+      currentTopHeading = saveHeading(node);
     } else if (node.attributes?.level) {
-      saveHeading(name, node.attributes.level, currentTopHeading?.items, node, currentTopHeading);
+      saveHeading(node, currentTopHeading);
     } else if (currentTopHeading?.items?.length) {
       currentTopHeading.items[currentTopHeading.items.length - 1]?.ast?.push(node);
     } else if (items.length) {

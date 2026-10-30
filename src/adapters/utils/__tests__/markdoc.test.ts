@@ -424,6 +424,7 @@ describe('collectMarkdownSections', () => {
       makeParagraphNode('Error format.'),
       makeHeadingNode('Rate limits', 2),
       makeParagraphNode('Request quotas.'),
+      ...(markdocParser('# Limits **v2**\n\n## Quotas\n') as Node[]),
     ]);
 
     const { sectionItems, sectionChildren } = collectMarkdownSections('...', '/docs/pets', {
@@ -435,6 +436,16 @@ describe('collectMarkdownSections', () => {
         link: '/docs/pets/section/errors',
         items: [{ link: '/docs/pets/section/errors/rate-limits' }],
       },
+      {
+        link: '/docs/pets/section/limits-v2',
+        previousRouteSlug: '/docs/pets/section/limits',
+        items: [
+          {
+            link: '/docs/pets/section/limits-v2/quotas',
+            previousRouteSlug: '/docs/pets/section/limits/quotas',
+          },
+        ],
+      },
     ]);
     expect(sectionChildren).toMatchObject([
       { sectionId: '/section/errors' },
@@ -442,6 +453,8 @@ describe('collectMarkdownSections', () => {
         sectionId: '/section/errors/rate-limits',
         children: [{ sectionId: '/section/errors/rate-limits' }],
       },
+      { sectionId: '/section/limits-v2' },
+      { sectionId: '/section/limits-v2/quotas' },
     ]);
   });
 });
@@ -549,12 +562,16 @@ describe('resolveMarkdocHeadingIds', () => {
 describe('re-stamping an already-stamped AST', () => {
   it('resolves to the same ids on a repeated run over the same nodes', () => {
     const tagHeading = makeHeadingNode('Guides', 2);
-    vi.mocked(parseMarkdown).mockReturnValue([tagHeading]);
+    const [formattedHeading] = markdocParser('## Header with **bold**\n') as Node[];
+    vi.mocked(parseMarkdown).mockReturnValue([tagHeading, formattedHeading]);
 
     extractMarkdownSections('...', undefined, 'users', true);
     const second = extractMarkdownSections('...', undefined, 'users', true);
 
-    expect(second[0].id).toBe('users/guides');
+    expect(second.map(({ id, previousId }) => ({ id, previousId }))).toEqual([
+      { id: 'users/guides', previousId: undefined },
+      { id: 'users/header-with-bold', previousId: 'users/header-with' },
+    ]);
     expect(tagHeading.attributes.id).toBe('users/guides');
 
     const opHeading = makeHeadingNode('Details', 3);
