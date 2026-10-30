@@ -483,6 +483,14 @@ describe('resolveLegacyHashToRoute', () => {
       );
     });
 
+    it('keeps the tail of an old id past a renamed heading', () => {
+      const index = sectionRouteIndex('# Intro **now**\n\n## Child\n');
+
+      expect(resolveLegacyHashToRoute('#section/intro/api_key', '/docs', index)).toBe(
+        '/docs/section/intro-now#section/intro-now/api_key',
+      );
+    });
+
     it('does not let an old id shadow a route that has it as its current path', () => {
       const index = buildRouteIndex(
         [
